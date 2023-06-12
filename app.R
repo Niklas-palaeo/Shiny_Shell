@@ -7,20 +7,31 @@ library(cowplot)
 
 source("global.R")
 
-ui <- fluidPage(
-  shinyjs::useShinyjs(),
-  titlePanel("Interactive ggplot2 Plot from CSV"),
-  sidebarLayout(
-    sidebarPanel(
-      fileInput("file", "Upload CSV file"),
-      # Color options
-      selectInput("geom_type", "Select geom type", choices = c("geom_point", "geom_tile", "geom_path")),
-      conditionalPanel(
-        condition = "input.geom_type === 'geom_point'",
-        sliderInput("point_size", "Point size", min = 0.1, max = 10, value = 0.1, step = 0.1)
+ui <- fluidPage(  
+  shinyjs::useShinyjs(),  
+  titlePanel("Interactive ggplot2 Plot from CSV"),  
+  sidebarLayout(  
+    sidebarPanel(  
+      fileInput("file", "Upload CSV file"),  
+      # Color options  
+      selectInput("geom_type", "Select geom type", choices = c("geom_point", "geom_tile", "geom_path")),  
+      conditionalPanel(  
+        condition = "input.geom_type === 'geom_point'",  
+        sliderInput("point_size", "Point size", min = 0.1, max = 10, value = 0.1, step = 0.1)  
+      ),  
+      # GEOM PATH
+      conditionalPanel(  
+        condition = "input.geom_type === 'geom_path'",  
+        sliderInput("line_width", "Line width", min = 0.1, max = 10, value = 0.1, step = 0.1),
+        sliderInput("distance_range", "Distance range in mm", min = 0, max = 50, value = c(0, 50), step = 1),
+        numericInput("resolution", "Resolution (mm)", value = 0.02, step = 0.01),
+        checkboxInput("enable_smooth", "Enable Smoothing"),
+        conditionalPanel(
+          condition = "input.enable_smooth",
+          numericInput("smooth_span", "Smoothing Span:", value = 0.75, min = 0.01, max = 1, step = 0.01)
+        ),
       ),
-      
-      hr(),
+      hr(),  
       
       actionButton("color_options", "Color options"),
       shinyjs::hidden(
@@ -47,7 +58,7 @@ ui <- fluidPage(
             )
         )
       ),
-      
+
       hr(),
       # Deviation filtering
       actionButton("deviation_filtering", "Deviation filtering"),
