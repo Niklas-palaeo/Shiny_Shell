@@ -1,0 +1,13 @@
+name: Shiny_Shell
+title: Shiny_Shell
+username:
+account: nikhausmann
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 8934565
+bundleId: 7149137
+url: https://nikhausmann.shinyapps.io/Shiny_Shell/
+when: 1682688649.27217
+lastSyncTime: 1682688649.27218
+asMultiple: FALSE
+asStatic: FALSE
