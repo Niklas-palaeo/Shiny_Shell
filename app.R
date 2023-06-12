@@ -8,55 +8,112 @@ library(cowplot)
 source("global.R")
 
 ui <- fluidPage(
-  titlePanel("Interactive ggplot2 Plot from CSV"),
+  shinyjs::useShinyjs(),
+  
+  # Sets the title of the application
+  titlePanel(paste0("Shell we plot some data? \U1F600")),
+  
   sidebarLayout(
     sidebarPanel(
+      # Creates a file input control for users to upload CSV files
       fileInput("file", "Upload CSV file"),
+      
+      # Dropdown menu for geometry type selection
+      selectInput("geom_type", "Select geom type", choices = c("Points" = "geom_point", "Tiles" = "geom_tile", "Line Scan" = "geom_path")),
+      
+      # Conditional panel for 'geom_point', with slider for point size
+      conditionalPanel(
+        condition = "input.geom_type === 'geom_point'",
+        sliderInput("point_size", "Point size", min = 1, max = 10, value = 2, step = 0.5)
+      ),
+
       conditionalPanel(
         condition = "input.geom_type !== 'geom_path'",
-        sliderInput("xrange", "X-axis range", min = -100, max = 100, value = c(-100, 100), step = 0.1),
-        sliderInput("yrange", "Y-axis range", min = -100, max = 100, value = c(-100, 100), step = 0.1)
+        # Button to add a line scan location
+        actionButton("add_remove_line_scan", "Add line scan location"),
+        # Dynamic UI output based on server processing
+        uiOutput("line_scan_file_ui")
       ),
-      conditionalPanel(
-        condition = "input.geom_type === 'geom_path'",
-        sliderInput("distance_range", "Distance range in mm", min = 0, max = 50, value = c(0, 50), step = 1),
-        numericInput("resolution", "Resolution (mm)", value = 0.02, step = 0.01)
-      ),
+      
+      # Another panel for 'geom_path', includes checkbox for smoothing and error bars
       conditionalPanel(
         condition = "input.geom_type === 'geom_path'",
         checkboxInput("enable_smooth", "Enable Smoothing"),
+        # Nested conditional panel that appears if smoothing is enabled
         conditionalPanel(
           condition = "input.enable_smooth",
           numericInput("smooth_span", "Smoothing Span:", value = 0.75, min = 0.01, max = 1, step = 0.01)
         ),
         checkboxInput("show_error_bars", "Show Error Bars")
       ),
-      # fileInput("line_scan_file", "Line scan location CSV file"),
-      actionButton("add_remove_line_scan", "Add line scan location"),
-      uiOutput("line_scan_file_ui"),
-      conditionalPanel(
-        condition = "input.geom_type === 'geom_point'",
-        sliderInput("point_size", "Point size", min = 0.1, max = 10, value = 10, step = 0.1)
+      
+      hr(),
+      
+      # Axis options
+      actionButton("axis_options", "Axis options"),
+      shinyjs::hidden(
+        div(id = "axis_options_panel",
+            conditionalPanel(
+              condition = "input.geom_type !== 'geom_path'",
+              # Two sliders for setting the X and Y axis range
+              sliderInput("xrange", "X-axis range", min = -100, max = 100, value = c(-100, 100), step = 0.1),
+              sliderInput("yrange", "Y-axis range", min = -100, max = 100, value = c(-100, 100), step = 0.1),
+            
+            flowLayout(
+              checkboxInput("switch_xy", "Switch X and Y coordinates", value = FALSE),
+              checkboxInput("reverse_x", "Reverse X-axis", value = FALSE),
+              checkboxInput("reverse_y", "Reverse Y-axis", value = FALSE)
+            )
+            ),
+            conditionalPanel(
+              condition = "input.geom_type === 'geom_path'",
+              # A slider and a numeric input for setting the distance range and resolution
+              sliderInput("distance_range", "Distance range in mm", min = 0, max = 50, value = c(0, 50), step = 1),
+              numericInput("resolution", "Resolution (mm)", value = 0.03, step = 0.01)
+            )
+        )
       ),
-      sliderInput("colorrange", "Color range", min = 0, max = 2, value = c(0, 2), step = 0.01),
-      selectInput("color_scale", "Select color scale", choices = c("viridis", "magma", "inferno", "plasma")),
-      selectInput("geom_type", "Select geom type", choices = c("geom_point", "geom_tile", "geom_path")),
-      flowLayout(
-        checkboxInput("switch_xy", "Switch X and Y coordinates", value = FALSE),
-        checkboxInput("reverse_x", "Reverse X-axis", value = FALSE),
-        checkboxInput("reverse_y", "Reverse Y-axis", value = FALSE)
+      
+      
+      
+      hr(),
+      # Color options
+      actionButton("color_options", "Color options"),
+      shinyjs::hidden(
+        div(id = "color_options_panel",
+            sliderInput("colorrange", "Color range", min = 0, max = 2, value = c(0, 2), step = 0.01),
+            selectInput("color_scale", "Select color scale", choices = c("viridis", "magma", "inferno", "plasma")),
+            selectInput("color_var", "Color Variable:",
+                        choices = c("mg_ca" = "mg_ca", "Standard Deviation" = "std", "Relative Standard Deviation" = "rel_std"),
+                        selected = "mg_ca")
+        )
       ),
-      selectInput("color_var", "Color Variable:",
-                  choices = c("mg_ca" = "mg_ca", "Standard Deviation" = "std", "Relative Standard Deviation" = "rel_std"),
-                  selected = "mg_ca"),
-      sliderInput("std_range", "Standard Deviation Range:",
-                  min = 0, max = 1, value = c(0, 1), step = 0.01),
-      sliderInput("rel_std_range", "Relative Standard Deviation Range:",
-                  min = 0, max = 1, value = c(0, 1), step = 0.01),
+      
+      hr(),
+      # Deviation filtering
+      actionButton("deviation_filtering", "Deviation filtering"),
+      shinyjs::hidden(
+        div(id = "deviation_filtering_panel",
+            sliderInput("std_range", "Standard Deviation Range:",
+                        min = 0, max = 2, value = c(0, 2), step = 0.01),
+            sliderInput("rel_std_range", "Relative Standard Deviation Range:",
+                        min = 0, max = 2, value = c(0, 2), step = 0.01)
+        )
+      ),
+      
+      hr(),
+      
+      
+      
+      # Text input for setting the plot title
       textInput("plot_title", "Plot title", value = ""),
+      
+      # Numeric input for setting the font size
       numericInput("font_size", "Font size:", value = 20, min = 5, max = 100, step = 1)
       
     ),
+    
+    # Main panel where the scatterplot is rendered
     mainPanel(
       plotOutput("scatterplot", width = "1200px", height = "1200px")
     )
