@@ -4,12 +4,16 @@ library(viridis)
 library(readr)
 library(dplyr)
 library(cowplot)
+library(shinythemes)
+
 
 source("global.R")
 
+
+
 ui <- fluidPage(
   shinyjs::useShinyjs(),
-  
+
   # Sets the title of the application
   titlePanel(paste0("Shell we plot some data? \U1F600")),
   
@@ -19,7 +23,7 @@ ui <- fluidPage(
       fileInput("file", "Upload CSV file"),
       
       # Dropdown menu for geometry type selection
-      selectInput("geom_type", "Select geom type", choices = c("Points" = "geom_point", "Tiles" = "geom_tile", "Line Scan" = "geom_path")),
+      selectInput("geom_type", "Select geom type", choices = c("Tiles" = "geom_tile","Points" = "geom_point",  "Line Scan" = "geom_path")),
       
       # Conditional panel for 'geom_point', with slider for point size
       conditionalPanel(
@@ -84,8 +88,8 @@ ui <- fluidPage(
             sliderInput("colorrange", "Color range", min = 0, max = 2, value = c(0, 2), step = 0.01),
             selectInput("color_scale", "Select color scale", choices = c("viridis", "magma", "inferno", "plasma")),
             selectInput("color_var", "Color Variable:",
-                        choices = c("mg_ca" = "mg_ca", "Standard Deviation" = "std", "Relative Standard Deviation" = "rel_std"),
-                        selected = "mg_ca")
+                        choices = c("Mg/Ca" = "mg_ca", "Standard Deviation" = "std", "Relative Standard Deviation" = "rel_std"),
+                        selected = "Mg/Ca")
         )
       ),
       
@@ -109,13 +113,16 @@ ui <- fluidPage(
       textInput("plot_title", "Plot title", value = ""),
       
       # Numeric input for setting the font size
-      numericInput("font_size", "Font size:", value = 20, min = 5, max = 100, step = 1)
+      numericInput("font_size", "Font size:", value = 20, min = 5, max = 100, step = 1),
+      downloadButton('downloadPlot', 'Download Plot')
+      
       
     ),
     
     # Main panel where the scatterplot is rendered
     mainPanel(
       plotOutput("scatterplot", width = "1200px", height = "1200px")
+      
     )
   )
 )
@@ -125,7 +132,7 @@ server <- function(input, output, session) {
   data <- reactive({
     req(input$file)
     col_names <- c("x", "y", "z", "mg_ca", "std", "rel_std")
-    read_csv(input$file$datapath, col_names = col_names)
+    read_csv(input$file$datapath, col_names = col_names, show_col_types = FALSE)
   })
   
   observeEvent(input$color_options, {
@@ -145,8 +152,8 @@ server <- function(input, output, session) {
   observeEvent(input$geom_type, {
     if (input$geom_type == "geom_path") {
       plot_data <- data()
-      plot_data$distance <- seq_along(plot_data$mg_ca) * input$resolution
-      max_distance <- max(plot_data$distance)
+      plot_data$Distance <- seq_along(plot_data$mg_ca) * input$resolution
+      max_distance <- max(plot_data$Distance)
       
       updateSliderInput(session, "distance_range", value = c(0, max_distance))
     }
@@ -214,7 +221,8 @@ observeEvent(input$line_scan_file, {
 })
 
   
-  
+plot_val <- reactiveVal()
+
   
   
 plot_output <- reactive({
@@ -238,28 +246,28 @@ plot_output <- reactive({
     p <- ggplot(plot_data)
     
     if (input$geom_type == "geom_point") {
-      p <- p + geom_point(aes_string(x = "x", y = "y", color = selected_var), size = 3)
+      p <- p + geom_point(aes_string(x = "x", y = "y", color = selected_var), size = 3)+xlab("mm")+ylab("mm")
     } else if (input$geom_type == "geom_tile") {
-      p <- p + geom_tile(aes_string(x = "x", y = "y", fill = selected_var))
+      p <- p + geom_tile(aes_string(x = "x", y = "y", fill = selected_var))+xlab("mm")+ylab("mm")
     } else {
-      plot_data$distance <- seq_along(plot_data$x) * input$resolution
+      plot_data$Distance <- seq_along(plot_data$x) * input$resolution
       p <- ggplot(plot_data)
-      p <- p + geom_path(aes_string(x = "distance", y = "mg_ca", color = selected_var))
+      p <- p + geom_path(aes_string(x = "Distance", y = "mg_ca", color = selected_var))
     }
     
     
     
     if (input$geom_type == "geom_path") {
-      plot_data$distance <- seq_along(plot_data$x) * input$resolution
+      plot_data$Distance <- seq_along(plot_data$x) * input$resolution
       p <- ggplot(plot_data)
-      p <- p + geom_path(aes(x = distance, y = mg_ca, color = mg_ca))
+      p <- p + geom_path(aes(x = Distance, y = mg_ca, color = mg_ca))
       
       if (input$enable_smooth) {
-        p <- p + geom_smooth(aes(x = distance, y = mg_ca), method = "loess", span = input$smooth_span, se = FALSE)
+        p <- p + geom_smooth(aes_string(x = "Distance", y = "mg_ca"), method = "loess", span = input$smooth_span, se = FALSE)
       }
       
       if (input$show_error_bars) {
-        p <- p + geom_ribbon(aes(x = distance, ymin = mg_ca - std, ymax = mg_ca + std), alpha = 0.3)
+        p <- p + geom_ribbon(aes(x = Distance, ymin = mg_ca - std, ymax = mg_ca + std), alpha = 0.3)
       }
       
       p <- p + xlim(input$distance_range) + ylim(input$colorrange)
@@ -294,12 +302,18 @@ plot_output <- reactive({
       p <- p + coord_fixed(xlim = xlim, ylim = ylim)
     }
     
+    column_to_title <- list(
+      mg_ca = "Mg/Ca",
+      std = "Standard Deviation",
+      rel_std = "Relative Standard Deviation"
+    )
+    
     
     if (input$geom_type %in% c("geom_point", "geom_path")) {
       p <- p + scale_color_viridis_c(option = input$color_scale,
                                      limits = input$colorrange,
                                      aes_string(color = input$color_var),  # <- Use the selected color variable
-                                     guide = guide_colorbar(title = input$color_var,
+                                     guide = guide_colorbar(title = column_to_title[[input$color_var]],
                                                             title.position = "top",  
                                                             title.theme = element_text(size = input$font_size),
                                                             label.theme = element_text(size = input$font_size)))
@@ -307,7 +321,7 @@ plot_output <- reactive({
       p <- p + scale_fill_viridis_c(option = input$color_scale,
                                     limits = input$colorrange,
                                     aes_string(fill = input$color_var),  # <- Use the selected color variable
-                                    guide = guide_colorbar(title = input$color_var,
+                                    guide = guide_colorbar(title = column_to_title[[input$color_var]],
                                                            title.position = "top",  
                                                            title.theme = element_text(size = input$font_size),
                                                            label.theme = element_text(size = input$font_size)))
@@ -320,10 +334,11 @@ plot_output <- reactive({
             text = element_text(size = input$font_size),
             axis.title = element_text(size = input$font_size),
             axis.text = element_text(size = input$font_size),
-            legend.title = element_text(size = input$font_size),
+            legend.title = element_text(size = input$font_size, hjust = 0.5),
             legend.text = element_text(size = input$font_size))
     
-   
+    plot_val(p)  # Store the ggplot object in plot_val
+    
 p
 
 
@@ -333,6 +348,17 @@ p
 output$scatterplot <- renderPlot({
   plot_output()
 }, res = 300)  # Add the 'res' argument outside the function, and adjust the resolution as needed
+
+output$downloadPlot <- downloadHandler(
+  filename = function() {
+    paste(input$plot_title, "_plot", '.png', sep='')
+  },
+  content = function(file) {
+    ggsave(file, plot = plot_val(), width = 10, height = 10, dpi = 600)
+  }
+)
+
+
 
 
 # 
