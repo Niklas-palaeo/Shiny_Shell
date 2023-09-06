@@ -86,7 +86,7 @@ ui <- fluidPage(
       shinyjs::hidden(
         div(id = "color_options_panel",
             sliderInput("colorrange", "Color range", min = 0, max = 2, value = c(0, 2), step = 0.01),
-            selectInput("color_scale", "Select color scale", choices = c("viridis", "magma", "inferno", "plasma")),
+            selectInput("color_scale", "Select color scale", choices = c("viridis","mako", "magma", "inferno", "plasma")),
             selectInput("color_var", "Color Variable:",
                         choices = c("Mg/Ca" = "mg_ca", "Standard Deviation" = "std", "Relative Standard Deviation" = "rel_std"),
                         selected = "Mg/Ca")
@@ -121,7 +121,7 @@ ui <- fluidPage(
     
     # Main panel where the scatterplot is rendered
     mainPanel(
-      plotOutput("scatterplot", width = "1200px", height = "1200px")
+      plotOutput("scatterplot", width = "750px", height = "750px")
       
     )
   )
@@ -311,20 +311,22 @@ plot_output <- reactive({
     
     if (input$geom_type %in% c("geom_point", "geom_path")) {
       p <- p + scale_color_viridis_c(option = input$color_scale,
-                                     limits = input$colorrange,
+                                     limits = input$colorrange, 
+                                     breaks = round(seq(input$colorrange[1], input$colorrange[2], length.out = 4),1),
                                      aes_string(color = input$color_var),  # <- Use the selected color variable
                                      guide = guide_colorbar(title = column_to_title[[input$color_var]],
                                                             title.position = "top",  
                                                             title.theme = element_text(size = input$font_size),
-                                                            label.theme = element_text(size = input$font_size)))
+                                                            label.theme = element_text(size = input$font_size*0.8)))
     } else {
       p <- p + scale_fill_viridis_c(option = input$color_scale,
                                     limits = input$colorrange,
+                                    breaks = round(seq(input$colorrange[1], input$colorrange[2], length.out = 4),1),
                                     aes_string(fill = input$color_var),  # <- Use the selected color variable
                                     guide = guide_colorbar(title = column_to_title[[input$color_var]],
                                                            title.position = "top",  
                                                            title.theme = element_text(size = input$font_size),
-                                                           label.theme = element_text(size = input$font_size)))
+                                                           label.theme = element_text(size = input$font_size*0.8)))
     }
     
     
