@@ -121,7 +121,7 @@ ui <- fluidPage(
     
     # Main panel where the scatterplot is rendered
     mainPanel(
-      plotOutput("scatterplot", width = "750px", height = "750px")
+      plotOutput("scatterplot",height = "750px")
       
     )
   )
@@ -131,9 +131,21 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   data <- reactive({
     req(input$file)
-    col_names <- c("x", "y", "z", "mg_ca", "std", "rel_std")
-    read_csv(input$file$datapath, col_names = col_names, show_col_types = FALSE)
+    
+    # Read the CSV without specifying column names first
+    df <- read_csv(input$file$datapath, show_col_types = FALSE)
+    
+    # Check the number of columns and add column names accordingly
+    if (ncol(df) == 5) {
+      colnames(df) <- c("x", "y", "z", "mg_ca", "std")
+      df <- df %>% mutate(rel_std = std / mg_ca)
+    } else if (ncol(df) == 6) {
+      colnames(df) <- c("x", "y", "z", "mg_ca", "std", "rel_std")
+    }
+    
+    return(df)
   })
+  
   
   observeEvent(input$color_options, {
     shinyjs::toggle("color_options_panel")
