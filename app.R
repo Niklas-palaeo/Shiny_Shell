@@ -15,7 +15,7 @@ ui <- fluidPage(
   shinyjs::useShinyjs(),
 
   # Sets the title of the application
-  titlePanel(paste0("Shell we plot some data? \U1F600")),
+  titlePanel(paste0("")),#Shell we plot some data? \U1F600")),
   
   sidebarLayout(
     sidebarPanel(
@@ -73,7 +73,8 @@ ui <- fluidPage(
               condition = "input.geom_type === 'geom_path'",
               # A slider and a numeric input for setting the distance range and resolution
               sliderInput("distance_range", "Distance range in mm", min = 0, max = 50, value = c(0, 50), step = 1),
-              numericInput("resolution", "Resolution (mm)", value = 0.03, step = 0.01)
+              numericInput("resolution", "Resolution (mm)", value = 0.01, step = 0.01),
+              numericInput("max_distance_custom", "Max distance range (mm)", value = 50, min = 1, step = 1)
             )
         )
       ),
@@ -85,7 +86,7 @@ ui <- fluidPage(
       actionButton("color_options", "Color options"),
       shinyjs::hidden(
         div(id = "color_options_panel",
-            sliderInput("colorrange", "Color range", min = 0, max = 2, value = c(0, 2), step = 0.01),
+            sliderInput("colorrange", "Color range", min = 0, max = 4, value = c(0, 3), step = 0.01),
             selectInput("color_scale", "Select color scale", choices = c("viridis","mako", "magma", "inferno", "plasma")),
             selectInput("color_var", "Color Variable:",
                         choices = c("Mg/Ca" = "mg_ca", "Standard Deviation" = "std", "Relative Standard Deviation" = "rel_std"),
@@ -171,6 +172,14 @@ server <- function(input, output, session) {
     }
   }, ignoreInit = TRUE)
   
+  observeEvent(input$max_distance_custom, {
+    req(input$max_distance_custom)
+    new_max <- input$max_distance_custom
+    updateSliderInput(session, "distance_range",
+                      max   = new_max,
+                      value = c(input$distance_range[1], min(input$distance_range[2], new_max)))
+  })
+  
   observeEvent(data(), {
     updateSliderInput(session, "xrange", min = min(data()$x), max = max(data()$x), value = c(min(data()$x), max(data()$x)))
     updateSliderInput(session, "yrange", min = min(data()$y), max = max(data()$y), value = c(min(data()$y), max(data()$y)))
@@ -210,7 +219,7 @@ observeEvent(input$add_remove_line_scan, {
         fileInput("line_scan_file", "Line scan location CSV file"),
         sliderInput("line_size", "Line size", min = 0.1, max = 5, value = 1, step = 0.1),
         selectInput("line_style", "Line style", choices = c("solid", "dashed", "dotted", "dotdash", "longdash", "twodash")),
-        selectInput("line_color", "Line color",   choices = c("red"="firebrick",  "blue"="cornflowerblue" ,  "green"="forestgreen" , "white" = "white", "black" = "black"))
+        selectInput("line_color", "Line color",   choices = c( "white" = "white","red"="firebrick",  "blue"="cornflowerblue" ,  "green"="forestgreen" , "black" = "black"))
 
       )
     })
@@ -272,7 +281,7 @@ plot_output <- reactive({
     if (input$geom_type == "geom_path") {
       plot_data$Distance <- seq_along(plot_data$x) * input$resolution
       p <- ggplot(plot_data)
-      p <- p + geom_path(aes(x = Distance, y = mg_ca, color = mg_ca))
+      p <- p + geom_path(aes(x = Distance, y = mg_ca, color = mg_ca),size=1)
       
       if (input$enable_smooth) {
         p <- p + geom_smooth(aes_string(x = "Distance", y = "mg_ca"), method = "loess", span = input$smooth_span, se = FALSE)
